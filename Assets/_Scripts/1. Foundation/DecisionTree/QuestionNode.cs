@@ -2,6 +2,16 @@
 
 namespace Foundation
 {
+    /// <summary>
+    /// A branch node that evaluates a boolean condition and routes to one of two children.
+    ///
+    /// Why Func<bool> instead of a concrete ICondition interface?
+    ///   Lambdas and method groups satisfy Func<bool> without extra class boilerplate.
+    ///   Tree construction in AIAgent subclasses reads naturally:
+    ///     new QuestionNode(() => _los.CanSee(_player), attackNode, patrolNode)
+    ///   An ICondition interface would require a separate class per condition,
+    ///   tripling the file count with no architectural benefit for this scale.
+    /// </summary>
     public class QuestionNode : IDecisionNode
     {
         private readonly Func<bool> _condition;

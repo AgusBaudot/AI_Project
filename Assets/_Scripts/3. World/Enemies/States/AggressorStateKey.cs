@@ -2,6 +2,12 @@
 
 namespace World
 {
+    /// <summary>
+    /// Defines the state keys specifically for the Aggressor enemy archetype.
+    /// 
+    /// Implements IEquatable to allow GC-free comparisons inside the generic StateMachine<TKey>. 
+    /// This keeps the AI update loop lightweight, even if dozens of enemies are ticking simultaneously.
+    /// </summary>
     public readonly struct AggressorStateKey : IEquatable<AggressorStateKey>
     {
         private readonly int _value;

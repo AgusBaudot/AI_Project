@@ -3,6 +3,32 @@ using System.Collections.Generic;
 
 namespace Foundation
 {
+    /// <summary>
+    /// Weighted random selection via the Roulette Wheel (Fitness Proportionate) algorithm.
+    ///
+    /// Algorithm:
+    ///   1. Sum all weights → totalWeight. Weights need not sum to 1.0;
+    ///      they express relative probability (e.g., {6, 3, 1} = 60%/30%/10%).
+    ///   2. Draw a random float r epsilon [0, totalWeight).
+    ///   3. Walk through items, accumulating a running sum.
+    ///      Select the first item whose cumulative sum exceeds r.
+    ///
+    /// Why C# ValueTuples?
+    ///   (T outcome, float weight) is a value type — no heap allocation per entry.
+    ///   The named fields make call sites self-documenting:
+    ///     ("LongRest", 0.5f)  reads naturally as "LongRest with 50% probability."
+    ///   Using a List rather than params array lets callers build the set
+    ///   dynamically or share it as a static field.
+    ///
+    /// Complexity: O(n) per selection. Fine for sets of 3-10 outcomes.
+    ///   For n > 20, prefer a binary search over a prefix-sum array (O(log n)).
+    ///   Fine for current scaling. Adjust later in Final Assignment.
+    ///
+    /// Floating-point safety:
+    ///   After the loop, we return the last item rather than throwing.
+    ///   Floating-point rounding can leave r marginally above the final
+    ///   cumulative sum; this guard ensures we always return a valid result.
+    /// </summary>
     public static class RouletteWheelSelector
     {
         /// <summary>

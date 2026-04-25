@@ -6,6 +6,29 @@ using UnityEngine.SceneManagement;
 
 namespace World
 {
+    /// <summary>
+    /// Group A: The Aggressor
+    ///
+    /// Behavioral Profile:
+    ///   - Patrols diligently using ping-pong waypoints.
+    ///   - Detects the player via ConeLOS and immediately pursues.
+    ///   - Never flees; always closes distance.
+    ///   - After n patrol cycles, enters Idle to "rest."
+    ///
+    /// FSM: Patrol <-> Idle <-> Attack
+    ///
+    /// Decision Tree:
+    ///   Root -> IsPlayerVisible?
+    ///     YES -> [Action] TransitionTo(Attack)
+    ///     NO  -> IsPatrolCycleThresholdReached AND not currently Idle?
+    ///           YES -> [Action] TransitionTo(Idle)
+    ///           NO  -> [Action] TransitionTo(Patrol)
+    ///
+    /// Roulette Wheel (on idle exit — determines post-rest patrol variant):
+    ///   "Relentless"  weight 0.5 = 50%: patrol at full speed (standard)
+    ///   "Cautious"    weight 0.3 = 30%: patrol at 80% speed (wary)
+    ///   "Enraged"     weight 0.2 = 20%: patrol at 130% speed + alert event
+    /// </summary>
     [AddComponentMenu("AI/Enemies/Aggressor Enemy")]
     public class AggressorEnemy : AIAgent
     {
@@ -24,8 +47,8 @@ namespace World
         private PatrolState<AggressorStateKey> _patrolState;
         private EnemyIdleState<AggressorStateKey> _idleState;
 
-        // ── Roulette Wheel: Idle exit → patrol variant ───────────────────────
-        // "Relentless" 0.5, "Cautious" 0.3, "Enraged" 0.2 → 50%/30%/20%
+        // ── Roulette Wheel: Idle exit -> patrol variant ───────────────────────
+        // "Relentless" 0.5, "Cautious" 0.3, "Enraged" 0.2 -> 50%/30%/20%
         private static readonly List<(string outcome, float weight)> _patrolVariants
             = new List<(string, float)>
             {
@@ -132,7 +155,7 @@ namespace World
             Debug.Log($"[AggressorEnemy] '{name}' caught the player! Game Over.");
             _eventChannel?.RaiseAttackLanded(_playerTransform.position);
 
-            // Prototype: reload the scene. In production: GameManager.EndGame(Loss)
+            // Prototype: reload the scene.
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
     }

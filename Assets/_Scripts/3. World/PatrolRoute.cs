@@ -2,6 +2,19 @@
 
 namespace World
 {
+    /// <summary>
+    /// Holds a sequence of world-space waypoints for patrol behavior.
+    ///
+    /// Design: A simple MonoBehaviour with child Transform references.
+    ///   We store Transform[] rather than Vector3[] so patrol points can be
+    ///   moved at runtime (e.g., on moving platforms) and gizmos update live.
+    ///   These might be baked to Vector3[] in Start() for performance,
+    ///   but Transform[] is safer and more editable here.
+    ///
+    /// GetWaypoint() is intentionally index-safe (Clamp) rather than throwing,
+    ///   because PatrolState ping-pong logic could temporarily produce an
+    ///   off-by-one index during the direction reversal frame.
+    /// </summary>
     [AddComponentMenu("AI/World/Patrol Route")]
     public class PatrolRoute : MonoBehaviour
     {

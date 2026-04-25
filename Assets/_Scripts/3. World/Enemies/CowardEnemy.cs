@@ -8,6 +8,29 @@ namespace World
     [AddComponentMenu("AI/Enemies/Coward Enemy")]
     public class CowardEnemy : AIAgent
     {
+        /// <summary>
+        /// Group B: The Coward
+        ///
+        /// Behavioral Profile:
+        ///   - Patrols slowly and nervously using ping-pong waypoints.
+        ///   - Flees immediately on player detection — never fights back.
+        ///   - Uses a high Evasion blend (0.8) to predictively escape.
+        ///   - After n patrol cycles, rests briefly before resuming.
+        ///
+        /// FSM: Patrol <-> Idle <-> RunAway
+        ///
+        /// Decision Tree:
+        ///   Root -> IsPlayerVisible?
+        ///     YES -> [Action] TransitionTo(RunAway)
+        ///     NO  -> IsPatrolCycleThresholdReached AND not currently Idle?
+        ///           YES -> [Action] TransitionTo(Idle)
+        ///           NO  -> [Action] TransitionTo(Patrol)
+        ///
+        /// Roulette Wheel (on idle exit — determines post-rest speed tier):
+        ///   "SlowShuffle" weight 0.5 -> 50%: very slow (timid after fright)
+        ///   "Normal"      weight 0.3 -> 30%: standard speed
+        ///   "Skittish"    weight 0.2 -> 20%: fast, erratic patrol speed
+        /// </summary>
         [Header("Coward Configuration")] [SerializeField]
         private PatrolRoute _patrolRoute;
 
@@ -22,7 +45,7 @@ namespace World
         private PatrolState<CowardStateKey> _patrolState;
         private EnemyIdleState<CowardStateKey> _idleState;
 
-        // ── Roulette Wheel: Idle exit → patrol speed tier ────────────────────
+        // ── Roulette Wheel: Idle exit -> patrol speed tier ────────────────────
         private static readonly List<(string outcome, float weight)> _speedTiers
             = new()
             {
@@ -83,7 +106,7 @@ namespace World
                 trueNode: idleAction,
                 falseNode: patrolAction);
 
-            // Coward ALWAYS runs when the player is visible — no attack ever
+            // Coward always runs when the player is visible — no attack ever
             return new QuestionNode(
                 condition: () => _los.CanSee(_playerTransform),
                 trueNode: runAwayAction,

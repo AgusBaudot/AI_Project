@@ -5,6 +5,26 @@ using UnityEngine;
 
 namespace World
 {
+    /// <summary>
+    /// Patrol State: moves between waypoints using a ping-pong pattern.
+    ///
+    /// Ping-Pong Algorithm:
+    ///   We track _waypointIndex and _direction (+1 or -1).
+    ///   When _index reaches the last waypoint, _direction flips to -1.
+    ///   When _index reaches waypoint 0, _direction flips back to +1.
+    ///   This produces natural back-and-forth patrol that doesn't require
+    ///   the agent to sprint across the entire route to restart.
+    ///   _patrolCycleCount increments at each reversal point, so reaching
+    ///   either end counts as half a cycle (two reversals = one full cycle).
+    ///   Threshold adjustable in the concrete enemy to taste.
+    ///
+    /// Movement: Arrival (not Seek) so the agent decelerates into each waypoint.
+    ///   Using Seek would cause the agent to oscillate around waypoints as it
+    ///   overshoots and corrects repeatedly — the Arrival slowing radius prevents this.
+    ///
+    /// Generic: PatrolState<TKey> works for both AggressorStateKey and CowardStateKey
+    ///   without code duplication. The FSM's type safety is preserved.
+    /// </summary>
     public sealed class PatrolState<TKey> : IState<TKey> where TKey : struct, IEquatable<TKey>
     {
         public TKey StateKey { get; }

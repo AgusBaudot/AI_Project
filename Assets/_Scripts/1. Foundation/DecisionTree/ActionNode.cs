@@ -2,6 +2,19 @@
 
 namespace Foundation
 {
+    /// <summary>
+    /// A leaf node that executes a side-effectful action and ends tree traversal.
+    ///
+    /// Action (void delegate) is used over a return type because the purpose of
+    /// leaf actions is to cause state transitions or flag changes — they produce
+    /// side effects, not values. Keeping the signature as Action makes construction
+    /// at the call site clean:
+    ///   new ActionNode(() => _fsm.TransitionTo(EnemyState.Attack), "GoAttack")
+    ///
+    /// The optional Label field supports decision logging and debugging:
+    ///   var leaf = (ActionNode)_decisionRoot.MakeDecision();
+    ///   Debug.Log(leaf.Label); returns "GoAttack"
+    /// </summary>
     public class ActionNode : IDecisionNode
     {
         private readonly Action _action;

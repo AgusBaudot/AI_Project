@@ -19,7 +19,28 @@ namespace Core
         public FSMRunner(StateMachine<TKey> fsm) => _fsm = fsm;
         public void Tick(float deltaTime) => _fsm.Tick(deltaTime);
     }
+    
+    // ────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Abstract base class for all AI-controlled entities.
+    ///
+    /// Pattern — Template Method:
+    ///   The lifecycle skeleton is defined here (Awake -> Start -> Update).
+    ///   Concrete subclasses fill in the specifics via abstract methods:
+    ///     SetupFSM() -> register states, start the machine
+    ///     BuildDecisionTree() -> return the root IDecisionNode
+    ///
+    /// Decision Loop (every Update):
+    ///   1. Decision tree evaluates — may call FSM.TransitionTo().
+    ///   2. FSM ticks — current state's OnTick() runs.
+    ///   Order matters: transitions are resolved before the active state acts,
+    ///   preventing one-frame "stale state" execution after a trigger fires.
+    ///
+    /// Composition over Inheritance:
+    ///   Heavy logic lives in composed components (SteeringAgent, ConeLOS).
+    ///   Subclasses stay thin: they wire states to behaviors and define the tree.
+    /// </summary>
     [RequireComponent(typeof(SteeringAgent))]
     [RequireComponent(typeof(ConeLOS))]
     public abstract class AIAgent : MonoBehaviour

@@ -4,6 +4,22 @@ using Core;
 
 namespace World
 {
+    /// <summary>
+    /// Idle State: enemy halts for a fixed duration, then signals completion.
+    ///
+    /// Timer Implementation:
+    ///   A simple float countdown driven by deltaTime in OnTick.
+    ///   We deliberately avoid Coroutines here to keep the state:
+    ///     - Self-contained (no MonoBehaviour dependency injected)
+    ///     - Testable (OnTick can be called with arbitrary deltaTime values)
+    ///     - FSM-safe (Coroutines survive state exits unless manually stopped)
+    ///
+    /// Completion Signal:
+    ///   OnIdleComplete is an event subscribed to by the concrete enemy class,
+    ///   which resets patrol counters and transitions back to Patrol.
+    ///   The state does NOT call FSM.TransitionTo() directly — it only signals.
+    ///   This preserves state isolation: states don't know about other states.
+    /// </summary>
     public sealed class EnemyIdleState<TKey> : IState<TKey> where TKey : struct, IEquatable<TKey>
     {
         public TKey StateKey { get; }

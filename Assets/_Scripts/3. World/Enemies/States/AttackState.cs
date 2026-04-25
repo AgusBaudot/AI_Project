@@ -5,6 +5,29 @@ using UnityEngine;
 
 namespace World
 {
+    /// <summary>
+    /// Attack State: closes on the player using Pursuit + Obstacle Avoidance,
+    /// then triggers a game-ending interaction at critical distance.
+    ///
+    /// Pursuit over Seek:
+    ///   A player moving laterally is a harder target than a stationary one.
+    ///   Seek always heads for the player's current position — a laterally moving
+    ///   player can outrun a Seek-based pursuer at equal speed simply by strafing.
+    ///   Pursuit predicts and intercepts, making the Aggressor feel genuinely
+    ///   threatening and "intelligent" without any extra code.
+    ///
+    /// Critical Distance Check:
+    ///   sqrMagnitude comparison avoids a sqrt call every frame.
+    ///   We compare: distSqr <= _criticalRangeSqr (precomputed in constructor).
+    ///
+    /// Game-End Hook:
+    ///   _onAttackLanded is an injected Action delegate — no GameManager reference.
+    ///   The concrete enemy (AggressorEnemy) provides the implementation,
+    ///   keeping this state fully decoupled from game management.
+    ///
+    /// Velocity caching:
+    ///   Player Rigidbody is cached on OnEnter for Pursuit's prediction math.
+    /// </summary>
     public sealed class AttackState<TKey> : IState<TKey> where TKey : struct, IEquatable<TKey>
     {
         public TKey StateKey { get; }

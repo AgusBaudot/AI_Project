@@ -2,6 +2,33 @@
 
 namespace Foundation
 {
+    /// <summary>
+    /// Cone-shaped Line of Sight sensor.
+    ///
+    /// Detection Pipeline — ordered cheapest -> most expensive:
+    ///
+    ///   PASS 1: Distance check using sqrMagnitude
+    ///     If the target is farther than _detectionRange, reject immediately.
+    ///     Using sqrMagnitude avoids the sqrt in Vector3.Distance, which is
+    ///     significant when called on 5+ enemies per frame.
+    ///
+    ///   PASS 2: Field of View angle using Dot Product
+    ///     dot(normalize(forward), normalize(toTarget)) = cos(0) //Not 0, theta.
+    ///     We precompute cos(halfFOV) once in Awake/OnValidate and compare
+    ///     directly. This avoids Mathf.Acos() (inverse trig is expensive)
+    ///     and instead leverages the monotonic relationship:
+    ///       dot >= cos(halfFOV) -> 0 <= halfFOV -> target inside cone
+    ///     NOTE: This comparison only works on normalized vectors.
+    ///
+    ///   PASS 3: Physics.Linecast for occlusion 
+    ///     Only called when the target has already passed the geometric tests.
+    ///     Casting from sensor origin to target position; any hit on the
+    ///     occlusion layer means the line of sight is broken by geometry.
+    ///
+    /// Precomputed values (_halfFOVCos, _rangeSquared):
+    ///   Refreshed in Awake and OnValidate (for live Inspector tweaking).
+    ///   This ensures the math is always in sync with the serialized parameters.
+    /// </summary>
     [AddComponentMenu("AI/Sensors/Cone LOS")]
     public class ConeLOS : MonoBehaviour
     {
@@ -55,7 +82,7 @@ namespace Foundation
             if (flatForward.sqrMagnitude < 0.0001f) 
                 return false;
 
-            // Both vectors MUST be normalized for dot = cos(θ) to hold
+            // Both vectors must be normalized for dot = cos(0) to hold
             float dot = Vector3.Dot(flatForward.normalized, toTarget.normalized);
             if (dot < _halfFOVCos) 
                 return false;

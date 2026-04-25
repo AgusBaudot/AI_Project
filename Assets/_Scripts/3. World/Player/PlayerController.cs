@@ -4,6 +4,18 @@ using UnityEngine;
 
 namespace World
 {
+    /// <summary>
+    /// Player controller using the same generic FSM as the enemies.
+    ///
+    /// Input: Input.GetAxisRaw (arrow keys / WASD) — GetAxisRaw returns a
+    ///   clean -1/0/1 with no smoothing, giving immediate directional response.
+    ///
+    /// The same StateMachine<T> used by enemies is used here, demonstrating
+    /// the architecture is truly entity-agnostic.
+    ///
+    /// Velocity is exposed publicly so enemy SteeringBehaviors (Pursuit, Evasion)
+    /// can read the player's current velocity for prediction math.
+    /// </summary>
     [RequireComponent(typeof(SteeringAgent))]
     [AddComponentMenu("AI/World/Player Controller")]
     public class PlayerController : MonoBehaviour

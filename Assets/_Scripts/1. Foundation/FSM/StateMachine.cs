@@ -4,6 +4,21 @@ using UnityEngine;
 
 namespace Foundation
 {
+    /// <summary>
+    /// Highly decoupled, generic Finite State Machine.
+    ///
+    /// Design Rationale:
+    ///   - States are keyed in a Dictionary<TStateKey, IState<TStateKey>> for
+    ///     O(1) lookup. With enum keys this is essentially a flat array access.
+    ///   - The FSM owns zero game logic. It is a pure lifecycle orchestrator:
+    ///     it calls OnEnter/OnTick/OnExit at the correct moments and nothing else.
+    ///   - Self-transition guard: TransitionTo() exits early if the requested key
+    ///     equals the current state key. This is essential because the decision
+    ///     tree fires every frame and would otherwise reset state timers, patrol
+    ///     counters, etc. on every Update.
+    ///   - AddState / Start are separated so all states can be registered before
+    ///     any lifecycle callbacks fire, avoiding race conditions at startup.
+    /// </summary>
     public class StateMachine<TStateKey> where TStateKey : struct, IEquatable<TStateKey>
     {
         private readonly Dictionary<TStateKey, IState<TStateKey>> _states = new();
@@ -38,6 +53,7 @@ namespace Foundation
         }
 
         // ── Lifecycle ──────────────────────────────────────────────────
+        
         /// <summary>
         /// Boots the FSM and calls OnEnter on the initial state.
         /// Call this after all states have been registered via AddState().

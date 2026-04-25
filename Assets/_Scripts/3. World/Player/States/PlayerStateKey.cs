@@ -2,6 +2,14 @@
 
 namespace World
 {
+    /// <summary>
+    /// A zero-allocation, struct-based alternative to a standard enum for the Player's FSM.
+    /// 
+    /// Standard enums cause hidden memory allocations (boxing) when passed into generic 
+    /// interfaces like IEquatable<T>. By using a readonly struct, we satisfy the generic 
+    /// constraints of the StateMachine without generating any GC overhead 
+    /// during state comparisons or dictionary lookups.
+    /// </summary>
     public readonly struct PlayerStateKey : IEquatable<PlayerStateKey>
     {
         private readonly int _value;
