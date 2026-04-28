@@ -37,6 +37,7 @@ namespace World
         [SerializeField] private float _patrolSpeed = 2f;
         [SerializeField] private float _runAwaySpeed = 7f; // Cowards are fast when scared
         [SerializeField] private float _evasionBlend = 0.8f; // Heavily evasion-dominant
+        [SerializeField] private float _safeEscapeDistance = 15f;
         [SerializeField] private int _patrolCyclesBeforeIdle = 2; // Rests more frequently
         [SerializeField] private float _idleDuration = 2f;
         [SerializeField] private AIEventChannel _eventChannel;
@@ -120,7 +121,22 @@ namespace World
 
             // Coward always runs when the player is visible — no attack ever
             return new QuestionNode(
-                condition: () => _los.CanSee(_playerTransform),
+                condition: () => 
+                {
+                    //Run if player is seen
+                    if (_los.CanSee(_playerTransform)) return true;
+
+                    //If we are escaping, continue running away even if player isn't seen
+                    if (_fsm.IsInState(CowardStateKey.RunAway))
+                    {
+                        float distSqr = (transform.position - _playerTransform.position).sqrMagnitude;
+                        if (distSqr < _safeEscapeDistance * _safeEscapeDistance)
+                            return true; // Still too close.
+                    }
+
+                    //If we can't see them and far away, it's safe.
+                    return false;
+                },
                 trueNode: runAwayAction,
                 falseNode: shouldIdleOrPatrol);
         }

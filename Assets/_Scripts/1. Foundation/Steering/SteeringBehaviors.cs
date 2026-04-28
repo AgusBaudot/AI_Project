@@ -26,7 +26,7 @@ namespace Foundation
         // Allocating this once statically prevents the Physics.OverlapSphere 
         // from generating garbage collection spikes every frame.
         private static readonly Collider[] _avoidanceHitBuffer = new Collider[10];
-        
+
         // SEEK
         // Move directly toward a target position at maximum speed.
         //
@@ -116,7 +116,7 @@ namespace Foundation
             return Seek(position, predicted, agentMaxSpeed);
         }
 
-        
+
         // EVASION
         // Flee from a pursuer by fleeing its predicted future position.
         //
@@ -138,89 +138,88 @@ namespace Foundation
             return Flee(position, predictedThreat, agentMaxSpeed);
         }
 
-        // OBSTACLE AVOIDANCE (Volumetric Tangent Pattern)
+        // OBSTACLE AVOIDANCE (Volumetric Tangent Pattern with Outward Bias)
         //
         // Algorithm:
-        //   1. Cast a spherical net (OverlapSphere) to detect ALL nearby geometry within the radius.
-        //   2. Filter the results: Ignore obstacles outside the agent's forward FOV cone.
-        //   3. Find the closest valid point on the nearest obstacle (ClosestPoint).
+        //   1. Cast a spherical net (OverlapSphere) to detect all nearby geometry within the radius.
+        //   2. Filter the results: Ignore obstacles outside the forward FOV cone (with a 20° 
+        //      peripheral buffer so the agent doesn't "forget" walls it is actively scraping).
+        //   3. Find the closest valid surface point on the nearest obstacle.
         //   4. Determine if the bulk of the obstacle is to the agent's local left or right.
-        //   5. Calculate a Tangent Escape Vector using the Cross Product of the Up vector 
-        //      and the direction to the obstacle.
-        //   6. Calculate evasion weight based on proximity to the personal area [0 = far, 1 = breached].
-        //   7. Smoothly Lerp between the desired direction and the escape tangent.
+        //   5. Calculate a Tangent Vector to "slide" parallel to the wall (Cross Product).
+        //   6. Calculate an Outward Bias to actively push away from the wall (Corner Clearance).
+        //   7. Scale the final blended escape vector based on proximity [0 = far edge, 1 = breached].
         //
         // Why Volumetric (Sphere) instead of Whiskers (Rays)?
         //   Whiskers have blind spots. Even with thick SphereCasts, whiskers can hit a 
         //   massive flat wall uniformly, causing the math to deadlock ("perfect cancellation").
-        //   A volumetric sphere guarantees detection of any geometry in the area, 
-        //   regardless of shape, size, or angle of approach.
+        //   A volumetric sphere guarantees detection of any geometry in the area.
         //
         // Why Cross Products instead of Surface Normals?
-        //   Surface normals push AWAY from a wall. If an agent walks directly into a flat wall, 
-        //   the normal pushes directly backwards, cancelling forward momentum and causing 
-        //   the agent to freeze. A Cross Product calculates a TANGENT (perpendicular) vector,
-        //   ensuring the agent always "slides" sideways around massive obstacles.
+        //   Surface normals push purely AWAY from a wall. If an agent walks directly into a flat 
+        //   wall, the normal pushes directly backwards, cancelling momentum and causing freezing. 
+        //   A Cross Product calculates a TANGENT, ensuring the agent always slides sideways.
         //
-        // Why Vector3.Lerp?
-        //   Instead of blindly adding violent push forces (which can cause jitter or extreme 
-        //   speed spikes), Lerping smoothly bends the agent's intended path toward the safe 
-        //   tangent path. It creates fluid, natural-looking steering curves.
-        //
-        // Returns: A safely rerouted, normalized direction vector. 
-        //          Unlike the old additive force, this completely replaces the intended 
-        //          movement direction. SteeringAgent.Move() multiplies this by its max speed.
+        // Returns: 
+        //   An additive avoidance vector (Direction * Force). This is the raw required "push".
+        //   The caller is responsible for blending this with its desired velocity.
+        private static readonly Collider[] _collidersBuffer = new Collider[10];
+
         public static Vector3 ObstacleAvoidance(
             Vector3 position,
             Vector3 forward,
-            float avoidDistance,
+            float avoidRadius,
             float avoidForce,
             LayerMask obstacleLayer,
-            float whiskerAngle = 30f,
-            float agentRadius = 0.5f)
+            float fovAngle = 180f,
+            float personalArea = 0.5f,
+            float cornerClearance = 0.6f)
         {
-            Vector3 totalAvoidance = Vector3.zero;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.0001f) return Vector3.zero;
+            forward.Normalize();
 
-            Vector3 flatForward = forward;
-            flatForward.y = 0f;
-            if (flatForward.sqrMagnitude < 0.0001f) return Vector3.zero;
-            flatForward.Normalize();
+            int count = Physics.OverlapSphereNonAlloc(position, avoidRadius, _collidersBuffer, obstacleLayer);
 
-            Vector3 rightLateral = Vector3.Cross(Vector3.up, flatForward).normalized;
-            Vector3 leftLateral = -rightLateral;
+            Collider nearColl = null;
+            float nearCollDistance = float.MaxValue;
+            Vector3 nearClosestPoint = Vector3.zero;
 
-            Quaternion rightRot = Quaternion.Euler(0f, whiskerAngle, 0f);
-            Quaternion leftRot = Quaternion.Euler(0f, -whiskerAngle, 0f);
-
-            var whiskers = new (Vector3 dir, float length, Vector3 escapeDir)[]
+            for (int i = 0; i < count; i++)
             {
-                (flatForward, avoidDistance, rightLateral),
-                (leftRot * flatForward, avoidDistance * 0.75f, rightLateral),
-                (rightRot * flatForward, avoidDistance * 0.75f, leftLateral)
-            };
+                var currColl = _collidersBuffer[i];
 
-            foreach (var (dir, length, escapeDir) in whiskers)
-            {
-                // This sweeps a sphere of 'agentRadius' along the direction vector.
-                if (!Physics.SphereCast(position, agentRadius, dir, out RaycastHit hit, length, obstacleLayer))
-                    continue;
+                Vector3 closestPoint = currColl.ClosestPoint(position);
+                closestPoint.y = position.y;
 
-                float proximity = 1f - (hit.distance / length);
+                float distance = (closestPoint - position).magnitude;
 
-                Vector3 normal = hit.normal;
-                normal.y = 0f;
-                if (normal.sqrMagnitude > 0.001f) normal.Normalize();
+                if (distance < 0.001f) continue;
 
-                Vector3 pushForce = (normal + escapeDir).normalized;
+                float currAngle = Vector3.Angle(forward, (closestPoint - position).normalized);
 
-                totalAvoidance += pushForce * (avoidForce * proximity * proximity);
+                if (currAngle > (fovAngle / 2f) + 20f) continue;
 
-                // Debug visualization (Will still draw as lines, but physics act as cylinders)
-                Debug.DrawRay(position, dir * hit.distance, Color.red);
-                Debug.DrawRay(hit.point, pushForce * 2f, Color.blue);
+                if (nearColl == null || distance < nearCollDistance)
+                {
+                    nearColl = currColl;
+                    nearCollDistance = distance;
+                    nearClosestPoint = closestPoint;
+                }
             }
 
-            return totalAvoidance;
+            if (nearColl == null) return Vector3.zero;
+
+            Vector3 dirToClosestPoint = (nearClosestPoint - position).normalized;
+            Vector3 rightLateral = Vector3.Cross(Vector3.up, forward).normalized;
+
+            Vector3 tangentDir = Vector3.Dot(rightLateral, dirToClosestPoint) < 0
+                ? Vector3.Cross(Vector3.up, dirToClosestPoint).normalized
+                : -Vector3.Cross(Vector3.up, dirToClosestPoint).normalized;
+
+            float proximity = 1f - Mathf.Clamp01((nearCollDistance - personalArea) / (avoidRadius - personalArea));
+
+            return (tangentDir + (-dirToClosestPoint * cornerClearance)).normalized * (avoidForce * proximity);
         }
     }
 }
