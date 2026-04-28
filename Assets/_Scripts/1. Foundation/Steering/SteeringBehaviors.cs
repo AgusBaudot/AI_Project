@@ -201,7 +201,6 @@ namespace Foundation
 
             foreach (var (dir, length, escapeDir) in whiskers)
             {
-                // 2. THE FIX: Change Raycast to SphereCast
                 // This sweeps a sphere of 'agentRadius' along the direction vector.
                 if (!Physics.SphereCast(position, agentRadius, dir, out RaycastHit hit, length, obstacleLayer))
                     continue;

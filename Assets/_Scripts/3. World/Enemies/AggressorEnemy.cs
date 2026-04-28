@@ -68,7 +68,7 @@ namespace World
 
             _idleState = new EnemyIdleState<AggressorStateKey>(
                 AggressorStateKey.Idle, _steeringAgent, _idleDuration, _eventChannel);
-            
+
             _steeringAgent.SetMaxSpeed(_attackSpeed);
 
             var attackState = new AttackState<AggressorStateKey>(
@@ -98,20 +98,32 @@ namespace World
         {
             // ── Leaf Actions ─────────────────────────────────────────────────
             var attackAction = new ActionNode(
-                () => _fsm.TransitionTo(AggressorStateKey.Attack), "GoAttack");
+                () =>
+                {
+                    if (!_fsm.IsInState(AggressorStateKey.Attack))
+                        _fsm.TransitionTo(AggressorStateKey.Attack);
+                }, "GoAttack");
 
             var idleAction = new ActionNode(
-                () => _fsm.TransitionTo(AggressorStateKey.Idle), "GoIdle");
+                () =>
+                {
+                    if (!_fsm.IsInState(AggressorStateKey.Idle))
+                        _fsm.TransitionTo(AggressorStateKey.Idle);
+                }, "GoIdle");
 
             var patrolAction = new ActionNode(
-                () => _fsm.TransitionTo(AggressorStateKey.Patrol), "GoPatrol");
+                () =>
+                {
+                    if (!_fsm.IsInState(AggressorStateKey.Patrol))
+                        _fsm.TransitionTo(AggressorStateKey.Patrol);
+                }, "GoPatrol");
 
             // ── Inner Branch: Should we rest? ────────────────────────────────
             // "Not currently Idle" guard prevents the decision tree from re-entering
             // Idle every frame while already idling (which would reset the timer).
             var shouldIdleOrPatrol = new QuestionNode(
-                condition: () => _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle
-                                 && !_fsm.IsInState(AggressorStateKey.Idle),
+                condition: () => _fsm.IsInState(AggressorStateKey.Idle) ||
+                                 _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle,
                 trueNode: idleAction,
                 falseNode: patrolAction);
 

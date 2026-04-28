@@ -50,7 +50,7 @@ namespace Foundation
             {
                 if (w < 0f)
                     throw new ArgumentException(
-                        $"[RouletteWheel] Negative weight ({w}) detected. All weights must be ≥ 0.");
+                        $"[RouletteWheel] Negative weight ({w}) detected. All weights must be positive.");
                 totalWeight += w;
             }
 

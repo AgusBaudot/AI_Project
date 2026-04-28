@@ -92,17 +92,29 @@ namespace World
         protected override IDecisionNode BuildDecisionTree()
         {
             var runAwayAction = new ActionNode(
-                () => _fsm.TransitionTo(CowardStateKey.RunAway), "GoRunAway");
+                () =>
+                {
+                    if (!_fsm.IsInState(CowardStateKey.RunAway))
+                        _fsm.TransitionTo(CowardStateKey.RunAway);
+                }, "GoRunAway");
 
             var idleAction = new ActionNode(
-                () => _fsm.TransitionTo(CowardStateKey.Idle), "GoIdle");
+                () =>
+                {
+                    if (!_fsm.IsInState(CowardStateKey.Idle))
+                        _fsm.TransitionTo(CowardStateKey.Idle);
+                }, "GoIdle");
 
             var patrolAction = new ActionNode(
-                () => _fsm.TransitionTo(CowardStateKey.Patrol), "GoPatrol");
+                () =>
+                {
+                    if (!_fsm.IsInState(CowardStateKey.Patrol))
+                        _fsm.TransitionTo(CowardStateKey.Patrol);
+                }, "GoPatrol");
 
             var shouldIdleOrPatrol = new QuestionNode(
-                condition: () => _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle
-                                 && !_fsm.IsInState(CowardStateKey.Idle),
+                condition: () => _fsm.IsInState(CowardStateKey.Idle) ||
+                                 _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle,
                 trueNode: idleAction,
                 falseNode: patrolAction);
 
