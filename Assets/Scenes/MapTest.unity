@@ -167,7 +167,7 @@ GameObject:
   - component: {fileID: 15284500}
   - component: {fileID: 15284499}
   m_Layer: 6
-  m_Name: Obstacle 4 (2)
+  m_Name: Obstacle 6
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -182,8 +182,8 @@ Transform:
   m_GameObject: {fileID: 15284497}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.9302195, z: -0, w: 0.36700386}
-  m_LocalPosition: {x: 13.67, y: 21.952547, z: -9.1}
-  m_LocalScale: {x: 2.3424761, y: 2.6976573, z: 7.305701}
+  m_LocalPosition: {x: 13.670008, y: 21.952547, z: -9.099999}
+  m_LocalScale: {x: 2.342476, y: 2.6976573, z: 7.305701}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 557287393}
@@ -900,7 +900,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c09279b2fdb1bf41b686f88ef81a447, type: 2}
+  - {fileID: 2100000, guid: c64808c69425d964289b580f206734a7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1256,7 +1256,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c09279b2fdb1bf41b686f88ef81a447, type: 2}
+  - {fileID: 2100000, guid: 0d84c0085eaabba419faabb7297cc6c9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1736,6 +1736,13 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 846418002}
+  - {fileID: 2133274051}
+  - {fileID: 697333812}
+  - {fileID: 1096364743}
+  - {fileID: 1814090927}
+  - {fileID: 1637342534}
+  - {fileID: 15284498}
+  - {fileID: 1500243918}
   - {fileID: 1711790871}
   - {fileID: 659340335}
   - {fileID: 630952900}
@@ -1743,13 +1750,6 @@ Transform:
   - {fileID: 2085071292}
   - {fileID: 77647530}
   - {fileID: 467740266}
-  - {fileID: 2133274051}
-  - {fileID: 697333812}
-  - {fileID: 1500243918}
-  - {fileID: 1096364743}
-  - {fileID: 15284498}
-  - {fileID: 1814090927}
-  - {fileID: 1637342534}
   - {fileID: 1142024399}
   - {fileID: 467429494}
   - {fileID: 145943965}
@@ -1909,7 +1909,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c09279b2fdb1bf41b686f88ef81a447, type: 2}
+  - {fileID: 2100000, guid: c64808c69425d964289b580f206734a7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2527,7 +2527,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0.37, y: 20.46, z: -15.99}
-  m_LocalScale: {x: 66.474106, y: 0.41557, z: 120.64612}
+  m_LocalScale: {x: 66.474106, y: 0.41557, z: 37.826176}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 557287393}
@@ -3125,7 +3125,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c09279b2fdb1bf41b686f88ef81a447, type: 2}
+  - {fileID: 2100000, guid: c64808c69425d964289b580f206734a7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4173,7 +4173,7 @@ GameObject:
   - component: {fileID: 1500243920}
   - component: {fileID: 1500243919}
   m_Layer: 6
-  m_Name: Obstacle 3 (1)
+  m_Name: Obstacle 7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4682,7 +4682,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7c09279b2fdb1bf41b686f88ef81a447, type: 2}
+  - {fileID: 2100000, guid: 0d84c0085eaabba419faabb7297cc6c9, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
