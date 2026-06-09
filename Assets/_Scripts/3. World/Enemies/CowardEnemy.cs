@@ -5,48 +5,46 @@ using UnityEngine;
 
 namespace World
 {
+    /// <summary>
+    /// Group B: The Coward
+    ///
+    /// Behavioral Profile:
+    ///   - Patrols slowly and nervously using ping-pong waypoints.
+    ///   - Flees immediately on player detection using Evasion steering.
+    ///   - When player is NOT visible but still too close, flees via A* pathfinding
+    ///     to the node farthest from the player.
+    ///   - When safe distance is reached and player not visible, resumes patrol.
+    ///   - After n patrol cycles, rests briefly before resuming.
+    ///
+    /// FSM States: Patrol &lt;-&gt; Idle &lt;-&gt; RunAway &lt;-&gt; PathfindingFlee
+    ///
+    /// Roulette Wheel (on idle exit - determines post-rest speed tier):
+    ///   "SlowShuffle" weight 0.5 -> 50%: very slow (timid after fright)
+    ///   "Normal"      weight 0.3 -> 30%: standard speed
+    ///   "Skittish"    weight 0.2 -> 20%: fast, erratic patrol speed
+    /// </summary>
     [AddComponentMenu("AI/Enemies/Coward Enemy")]
     public class CowardEnemy : AIAgent
     {
-        /// <summary>
-        /// Group B: The Coward
-        ///
-        /// Behavioral Profile:
-        ///   - Patrols slowly and nervously using ping-pong waypoints.
-        ///   - Flees immediately on player detection — never fights back.
-        ///   - Uses a high Evasion blend (0.8) to predictively escape.
-        ///   - After n patrol cycles, rests briefly before resuming.
-        ///
-        /// FSM: Patrol <-> Idle <-> RunAway
-        ///
-        /// Decision Tree:
-        ///   Root -> IsPlayerVisible?
-        ///     YES -> [Action] TransitionTo(RunAway)
-        ///     NO  -> IsPatrolCycleThresholdReached AND not currently Idle?
-        ///           YES -> [Action] TransitionTo(Idle)
-        ///           NO  -> [Action] TransitionTo(Patrol)
-        ///
-        /// Roulette Wheel (on idle exit — determines post-rest speed tier):
-        ///   "SlowShuffle" weight 0.5 -> 50%: very slow (timid after fright)
-        ///   "Normal"      weight 0.3 -> 30%: standard speed
-        ///   "Skittish"    weight 0.2 -> 20%: fast, erratic patrol speed
-        /// </summary>
         [Header("Coward Configuration")] [SerializeField]
         private PatrolRoute _patrolRoute;
 
         [SerializeField] private float _patrolSpeed = 2f;
-        [SerializeField] private float _runAwaySpeed = 7f; // Cowards are fast when scared
-        [SerializeField] private float _evasionBlend = 0.8f; // Heavily evasion-dominant
+        [SerializeField] private float _runAwaySpeed = 7f;
+        [SerializeField] private float _evasionBlend = 0.8f;
         [SerializeField] private float _safeEscapeDistance = 15f;
-        [SerializeField] private int _patrolCyclesBeforeIdle = 2; // Rests more frequently
+        [SerializeField] private int _patrolCyclesBeforeIdle = 2;
         [SerializeField] private float _idleDuration = 2f;
         [SerializeField] private AIEventChannel _eventChannel;
+
+        [Header("Pathfinding")] [Tooltip("Assign the PathNodeGrid present in the scene.")] [SerializeField]
+        private PathNodeGrid _pathNodeGrid;
 
         private StateMachine<CowardStateKey> _fsm;
         private PatrolState<CowardStateKey> _patrolState;
         private EnemyIdleState<CowardStateKey> _idleState;
 
-        // ── Roulette Wheel: Idle exit -> patrol speed tier ────────────────────
+        // ── Roulette Wheel ────────────────────────────────────────────────────
         private static readonly List<(string outcome, float weight)> _speedTiers
             = new()
             {
@@ -67,11 +65,21 @@ namespace World
             _idleState = new EnemyIdleState<CowardStateKey>(
                 CowardStateKey.Idle, _steeringAgent, _idleDuration, _eventChannel);
 
-            // RunAway speed is higher than patrol speed — cowards sprint when scared
             _steeringAgent.SetMaxSpeed(_runAwaySpeed);
+
             var runAwayState = new RunAwayState<CowardStateKey>(
                 CowardStateKey.RunAway, _steeringAgent, _playerTransform,
                 _evasionBlend, _eventChannel);
+
+            // ── Pathfinding Flee State ────────────────────────────────────────
+            // Entered when player is NOT visible but coward is still too close.
+            // A* finds the node farthest from the player and routes there.
+            var pathfindingFleeState = new PathfindingState<CowardStateKey>(
+                CowardStateKey.PathfindingFlee,
+                _steeringAgent,
+                _playerTransform,
+                _pathNodeGrid,
+                PathfindingMode.Flee);
 
             _idleState.OnIdleComplete += () =>
             {
@@ -83,6 +91,7 @@ namespace World
             _fsm.AddState(_patrolState);
             _fsm.AddState(_idleState);
             _fsm.AddState(runAwayState);
+            _fsm.AddState(pathfindingFleeState);
             _fsm.Start(CowardStateKey.Patrol);
 
             _fsmRunner = new FSMRunner<CowardStateKey>(_fsm);
@@ -97,48 +106,69 @@ namespace World
                 {
                     if (!_fsm.IsInState(CowardStateKey.RunAway))
                         _fsm.TransitionTo(CowardStateKey.RunAway);
-                }, "GoRunAway");
+                },
+                "GoRunAway");
+
+            var pathfindFleeAction = new ActionNode(
+                () =>
+                {
+                    if (!_fsm.IsInState(CowardStateKey.PathfindingFlee))
+                        _fsm.TransitionTo(CowardStateKey.PathfindingFlee);
+                },
+                "GoPathfindingFlee");
 
             var idleAction = new ActionNode(
                 () =>
                 {
                     if (!_fsm.IsInState(CowardStateKey.Idle))
                         _fsm.TransitionTo(CowardStateKey.Idle);
-                }, "GoIdle");
+                },
+                "GoIdle");
 
             var patrolAction = new ActionNode(
                 () =>
                 {
                     if (!_fsm.IsInState(CowardStateKey.Patrol))
                         _fsm.TransitionTo(CowardStateKey.Patrol);
-                }, "GoPatrol");
+                },
+                "GoPatrol");
 
-            var shouldIdleOrPatrol = new QuestionNode(
+            // ── Innermost branch: already fleeing via pathfinding? ────────────
+            // If we had no LOS and entered PathfindingFlee, we stay in it until
+            // safe distance is reached - prevents flip-flopping to Patrol too soon.
+            var continueFleeOrPatrol = new QuestionNode(
+                condition: () => _fsm.IsInState(CowardStateKey.PathfindingFlee) &&
+                                 (transform.position - _playerTransform.position).sqrMagnitude
+                                 < _safeEscapeDistance * _safeEscapeDistance,
+                trueNode: pathfindFleeAction,
+                falseNode: patrolAction);
+
+            // ── Middle branch: should we rest or keep fleeing? ────────────────
+            var shouldIdleOrFlee = new QuestionNode(
                 condition: () => _fsm.IsInState(CowardStateKey.Idle) ||
                                  _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle,
                 trueNode: idleAction,
-                falseNode: patrolAction);
+                falseNode: continueFleeOrPatrol);
 
-            // Coward always runs when the player is visible — no attack ever
+            // ── Root: immediate threat? ───────────────────────────────────────
+            // Visible player -> Evasion steering (RunAway).
+            // Not visible but still too close in RunAway -> also keep RunAway.
             return new QuestionNode(
-                condition: () => 
+                condition: () =>
                 {
-                    //Run if player is seen
                     if (_los.CanSee(_playerTransform)) return true;
 
-                    //If we are escaping, continue running away even if player isn't seen
                     if (_fsm.IsInState(CowardStateKey.RunAway))
                     {
                         float distSqr = (transform.position - _playerTransform.position).sqrMagnitude;
                         if (distSqr < _safeEscapeDistance * _safeEscapeDistance)
-                            return true; // Still too close.
+                            return true;
                     }
 
-                    //If we can't see them and far away, it's safe.
                     return false;
                 },
                 trueNode: runAwayAction,
-                falseNode: shouldIdleOrPatrol);
+                falseNode: shouldIdleOrFlee);
         }
 
         // ── Roulette Wheel Application ────────────────────────────────────────
@@ -149,14 +179,14 @@ namespace World
 
             float chosenSpeed = tier switch
             {
-                "SlowShuffle" => _patrolSpeed * 0.5f, // Barely moving after a scare
+                "SlowShuffle" => _patrolSpeed * 0.5f,
                 "Normal" => _patrolSpeed,
-                "Skittish" => _patrolSpeed * 1.8f, // Jumpy, erratic speed
+                "Skittish" => _patrolSpeed * 1.8f,
                 _ => _patrolSpeed
             };
 
             _patrolState.SetPatrolSpeed(chosenSpeed);
-            _eventChannel?.RaiseStateChanged($"CowardSpeed:{tier}"); // Hook for debug/VFX
+            _eventChannel?.RaiseStateChanged($"CowardSpeed:{tier}");
         }
     }
 }

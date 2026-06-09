@@ -13,9 +13,9 @@ namespace Foundation
     ///   box the value type on every self-transition guard.
     ///
     /// Lifecycle contract:
-    ///   OnEnter  → called exactly once when the FSM arrives at this state.
-    ///   OnTick   → called every frame while this state is active (driven by FSM.Tick).
-    ///   OnExit   → called exactly once when the FSM departs from this state.
+    ///   OnEnter -> called exactly once when the FSM arrives at this state.
+    ///   OnTick -> called every frame while this state is active (driven by FSM.Tick).
+    ///   OnExit -> called exactly once when the FSM departs from this state.
     ///   States must be self-contained: they should never reach into the FSM
     ///   to trigger their own transitions; that belongs to the decision layer.
     /// </summary>
@@ -25,5 +25,5 @@ namespace Foundation
         void OnEnter();
         void OnTick(float deltaTime);
         void OnExit();
-    }   
+    }
 }

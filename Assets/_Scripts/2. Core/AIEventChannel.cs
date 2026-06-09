@@ -1,7 +1,7 @@
 ﻿using System;
 using UnityEngine;
 
-namespace World
+namespace Core
 {
     /// <summary>
     /// ScriptableObject event bus for AI simulation hooks.
