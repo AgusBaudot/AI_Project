@@ -86,13 +86,11 @@ namespace Core
 
             Vector3 avoidance = SteeringBehaviors.ObstacleAvoidance(
                 transform.position,
-                transform.forward,
+                desiredVelocity.normalized, 
                 _avoidRadius,
                 _avoidForce,
                 _obstacleLayer,
-                _fovAngle,
-                _personalArea,
-                _cornerClearance);
+                0.5f);
 
             Vector3 combined = desiredVelocity + avoidance;
             combined.y = 0f;

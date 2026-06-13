@@ -42,9 +42,14 @@ namespace Foundation
         [Tooltip("Physics layers that occlude line of sight.")]
         [SerializeField] private LayerMask _occlusionMask;
 
+        [Tooltip("How long the agent remembers the target after losing sight.")] [SerializeField]
+        private float _memoryDuration = 0.5f;
+
         // Precomputed per-frame constants
         private float _halfFOVCos;   // cos(halfAngle) — used in dot product comparison
         private float _rangeSquared; // _detectionRange^2 — avoids sqrt in distance check
+
+        private float _lasTimeSeen = float.NegativeInfinity;
 
         // ── Unity Lifecycle ──────────────────────────────────────────────────
 
@@ -71,26 +76,30 @@ namespace Foundation
             Vector3 toTarget = targetPosition - origin;
             toTarget.y = 0f; // Top-down: ignore Y delta when comparing angles
 
+            bool CheckMemory() => Time.time < _lasTimeSeen + _memoryDuration;
+
             // ── PASS 1: Distance ────────────────────────────────────────────
             if (toTarget.sqrMagnitude > _rangeSquared) 
-                return false;
+                return CheckMemory();
 
             // ── PASS 2: Field of View (Dot Product) ─────────────────────────
             Vector3 flatForward = transform.forward;
             flatForward.y = 0f;
 
             if (flatForward.sqrMagnitude < 0.0001f) 
-                return false;
+                return CheckMemory();
 
             // Both vectors must be normalized for dot = cos(0) to hold
             float dot = Vector3.Dot(flatForward.normalized, toTarget.normalized);
             if (dot < _halfFOVCos) 
-                return false;
+                return CheckMemory();
 
             // ── PASS 3: Occlusion Linecast ───────────────────────────────────
             if (Physics.Linecast(origin, targetPosition, _occlusionMask))
-                return false;
-
+                return CheckMemory();
+            
+            //Target officially seen: Update memory timestamp.
+            _lasTimeSeen = Time.time;
             return true;
         }
         

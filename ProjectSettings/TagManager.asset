@@ -14,8 +14,8 @@ TagManager:
   - Obstacles
   - Enemy
   - Flock
-  - 
-  - 
+  - FlockAgent
+  - FlockLeader
   - 
   - 
   - 

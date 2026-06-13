@@ -167,59 +167,69 @@ namespace Foundation
 
         public static Vector3 ObstacleAvoidance(
             Vector3 position,
-            Vector3 forward,
+            Vector3 intendedDirection,
             float avoidRadius,
             float avoidForce,
             LayerMask obstacleLayer,
-            float fovAngle = 180f,
-            float personalArea = 0.5f,
-            float cornerClearance = 0.6f)
+            float capsuleRadius = 0.5f)
         {
-            forward.y = 0f;
-            if (forward.sqrMagnitude < 0.0001f) return Vector3.zero;
-            forward.Normalize();
+            if (intendedDirection.sqrMagnitude < 0.001f) return Vector3.zero;
+            Vector3 forward = intendedDirection.normalized;
 
-            int count = Physics.OverlapSphereNonAlloc(position, avoidRadius, _collidersBuffer, obstacleLayer);
+            // 1. Scan the exact geometry in the area (no blind spots from rays)
+            Collider[] hits = new Collider[5];
+            int count = Physics.OverlapSphereNonAlloc(position, avoidRadius, hits, obstacleLayer);
 
-            Collider nearColl = null;
-            float nearCollDistance = float.MaxValue;
-            Vector3 nearClosestPoint = Vector3.zero;
+            if (count == 0) return Vector3.zero;
+
+            Collider nearestWall = null;
+            float minDist = float.MaxValue;
+            Vector3 nearestSurfacePoint = Vector3.zero;
 
             for (int i = 0; i < count; i++)
             {
-                var currColl = _collidersBuffer[i];
+                // 2. Scan the exact boundary of the obstacle
+                Vector3 surfacePoint = hits[i].ClosestPoint(position);
+                surfacePoint.y = position.y; // Keep it completely top-down
 
-                Vector3 closestPoint = currColl.ClosestPoint(position);
-                closestPoint.y = position.y;
+                float dist = Vector3.Distance(position, surfacePoint);
 
-                float distance = (closestPoint - position).magnitude;
+                // Ignore if we are dead-center inside a collider (avoids zero-vectors)
+                if (dist < 0.001f) continue;
 
-                if (distance < 0.001f) continue;
-
-                float currAngle = Vector3.Angle(forward, (closestPoint - position).normalized);
-
-                if (currAngle > (fovAngle / 2f) + 20f) continue;
-
-                if (nearColl == null || distance < nearCollDistance)
+                if (dist < minDist)
                 {
-                    nearColl = currColl;
-                    nearCollDistance = distance;
-                    nearClosestPoint = closestPoint;
+                    minDist = dist;
+                    nearestWall = hits[i];
+                    nearestSurfacePoint = surfacePoint;
                 }
             }
 
-            if (nearColl == null) return Vector3.zero;
+            if (nearestWall == null) return Vector3.zero;
 
-            Vector3 dirToClosestPoint = (nearClosestPoint - position).normalized;
-            Vector3 rightLateral = Vector3.Cross(Vector3.up, forward).normalized;
+            // 3. Calculate the True Mathematical Normal 
+            // By drawing a line from the exact surface point back to the agent, we get a perfect 
+            // outward vector that naturally "fans out" around sharp corners, completely 
+            // bypassing the vertex traps that Raycasts fall into.
+            Vector3 trueNormal = (position - nearestSurfacePoint).normalized;
 
-            Vector3 tangentDir = Vector3.Dot(rightLateral, dirToClosestPoint) < 0
-                ? Vector3.Cross(Vector3.up, dirToClosestPoint).normalized
-                : -Vector3.Cross(Vector3.up, dirToClosestPoint).normalized;
+            // 4. Calculate the sliding tangent
+            Vector3 tangent = Vector3.Cross(Vector3.up, trueNormal).normalized;
 
-            float proximity = 1f - Mathf.Clamp01((nearCollDistance - personalArea) / (avoidRadius - personalArea));
+            // Pick the tangent direction that keeps us moving toward the waypoint
+            Vector3 slideDirection = Vector3.Dot(tangent, forward) > 0 ? tangent : -tangent;
 
-            return (tangentDir + (-dirToClosestPoint * cornerClearance)).normalized * (avoidForce * proximity);
+            // 5. Calculate pressure.
+            // Touching the capsule bounds = max pressure (1). Edge of avoid radius = 0.
+            float pressure = 1f - Mathf.Clamp01((minDist - capsuleRadius) / (avoidRadius - capsuleRadius));
+
+            if (pressure <= 0f) return Vector3.zero;
+
+            // 6. Blend: heavily favor sliding along the wall, with just enough outward 
+            // push (trueNormal) to keep the capsule from clipping geometry.
+            Vector3 escapeDirection = (slideDirection * 2.0f + trueNormal * pressure).normalized;
+
+            return escapeDirection * (avoidForce * pressure);
         }
     }
 }

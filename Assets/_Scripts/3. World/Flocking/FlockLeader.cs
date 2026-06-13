@@ -19,7 +19,7 @@ namespace World
     ///   point for the flock, not an AI threat, so it doesn't need A* or FSM.
     ///
     /// Exposed References:
-    ///   FlockAgent reads LeaderTransform to compute arrive-to-leader.
+    ///   FlockAgent reads LeaderTransform to compute arrive-to-leader. 
     ///   Velocity is exposed so FlockAgent can optionally align to leader direction.
     ///
     /// Why not use SteeringAgent here?

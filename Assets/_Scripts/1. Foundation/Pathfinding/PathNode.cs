@@ -73,7 +73,7 @@ namespace Foundation
             Gizmos.DrawSphere(transform.position, 0.18f);
 
             // Draw neighbor connections as thin lines
-            Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.3f);
+            Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.5f);
             foreach (var neighbor in Neighbors)
             {
                 if (neighbor != null)

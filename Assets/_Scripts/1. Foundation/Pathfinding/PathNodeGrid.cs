@@ -56,7 +56,6 @@ namespace Foundation
             }
 
             ConnectNeighbors();
-            Debug.Log($"[PathNodeGrid] Wired {_allNodes.Length} nodes.");
         }
 
         // ── Neighbor Connection ──────────────────────────────────────────────

@@ -45,6 +45,7 @@ namespace World
         where TKey : struct, IEquatable<TKey>
     {
         public TKey StateKey { get; }
+        public bool IsPathComplete => _path == null || _pathIndex >= _path.Count;
 
         private readonly SteeringAgent _agent;
         private readonly Transform _targetTransform; // Player - either chased or fled from
