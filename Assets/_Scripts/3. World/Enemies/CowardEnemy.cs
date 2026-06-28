@@ -77,7 +77,7 @@ namespace World
             var pathfindingFleeState = new PathfindingState<CowardStateKey>(
                 CowardStateKey.PathfindingFlee,
                 _steeringAgent,
-                _playerTransform,
+                () => _playerTransform.position,
                 _pathNodeGrid,
                 PathfindingMode.Flee);
 
@@ -133,42 +133,35 @@ namespace World
                 },
                 "GoPatrol");
 
-            // ── Innermost branch: already fleeing via pathfinding? ────────────
-            // If we had no LOS and entered PathfindingFlee, we stay in it until
-            // safe distance is reached - prevents flip-flopping to Patrol too soon.
-            var continueFleeOrPatrol = new QuestionNode(
-                condition: () => _fsm.IsInState(CowardStateKey.PathfindingFlee) &&
-                                 (transform.position - _playerTransform.position).sqrMagnitude
-                                 < _safeEscapeDistance * _safeEscapeDistance,
-                trueNode: pathfindFleeAction,
-                falseNode: patrolAction);
-
-            // ── Middle branch: should we rest or keep fleeing? ────────────────
-            var shouldIdleOrFlee = new QuestionNode(
+            // ── Innermost branch: normal patrol or rest? ──────────────────────
+            var shouldIdleOrPatrol = new QuestionNode(
                 condition: () => _fsm.IsInState(CowardStateKey.Idle) ||
                                  _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle,
                 trueNode: idleAction,
-                falseNode: continueFleeOrPatrol);
+                falseNode: patrolAction);
 
-            // ── Root: immediate threat? ───────────────────────────────────────
-            // Visible player -> Evasion steering (RunAway).
-            // Not visible but still too close in RunAway -> also keep RunAway.
-            return new QuestionNode(
+            // ── Middle branch: lost LOS, but still too close? → A* Flee ───────
+            // If we were running/fleeing AND haven't reached safe distance, use Pathfinding.
+            var wasFleeing = new QuestionNode(
                 condition: () =>
                 {
-                    if (_los.CanSee(_playerTransform)) return true;
+                    bool wasEscaping = _fsm.IsInState(CowardStateKey.RunAway) ||
+                                       _fsm.IsInState(CowardStateKey.PathfindingFlee);
 
-                    if (_fsm.IsInState(CowardStateKey.RunAway))
-                    {
-                        float distSqr = (transform.position - _playerTransform.position).sqrMagnitude;
-                        if (distSqr < _safeEscapeDistance * _safeEscapeDistance)
-                            return true;
-                    }
+                    float distSqr = (transform.position - _playerTransform.position).sqrMagnitude;
+                    bool stillTooClose = distSqr < _safeEscapeDistance * _safeEscapeDistance;
 
-                    return false;
+                    return wasEscaping && stillTooClose;
                 },
+                trueNode: pathfindFleeAction,
+                falseNode: shouldIdleOrPatrol);
+
+            // ── Root: immediate threat? ───────────────────────────────────────
+            // If the player is visible, use direct Evasion steering (RunAway).
+            return new QuestionNode(
+                condition: () => _los.CanSee(_playerTransform),
                 trueNode: runAwayAction,
-                falseNode: shouldIdleOrFlee);
+                falseNode: wasFleeing);
         }
 
         // ── Roulette Wheel Application ────────────────────────────────────────

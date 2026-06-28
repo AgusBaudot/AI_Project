@@ -48,7 +48,7 @@ namespace World
         public bool IsPathComplete => _path == null || _pathIndex >= _path.Count;
 
         private readonly SteeringAgent _agent;
-        private readonly Transform _targetTransform; // Player - either chased or fled from
+        private readonly Func<Vector3> _getTargetPosition;
         private readonly PathNodeGrid _grid;
         private readonly PathfindingMode _mode;
         private readonly float _waypointThreshold; // Distance to consider a node reached
@@ -61,7 +61,7 @@ namespace World
         public PathfindingState(
             TKey key,
             SteeringAgent agent,
-            Transform targetTransform,
+            Func<Vector3> targetTransform,
             PathNodeGrid grid,
             PathfindingMode mode = PathfindingMode.Chase,
             float waypointThreshold = 0.6f,
@@ -69,7 +69,7 @@ namespace World
         {
             StateKey = key;
             _agent = agent;
-            _targetTransform = targetTransform;
+            _getTargetPosition = targetTransform;
             _grid = grid;
             _mode = mode;
             _waypointThreshold = waypointThreshold;
@@ -87,7 +87,7 @@ namespace World
 
         public void OnTick(float deltaTime)
         {
-            if (_targetTransform == null) return;
+            if (_getTargetPosition == null) return;
 
             // ── Path Refresh ─────────────────────────────────────────────────
             _refreshTimer -= deltaTime;
@@ -132,8 +132,8 @@ namespace World
             PathNode startNode = _grid.GetNearestNode(_agent.transform.position);
 
             PathNode goalNode = _mode == PathfindingMode.Chase
-                ? _grid.GetNearestNode(_targetTransform.position)
-                : GetFurthestNodeFrom(_targetTransform.position, startNode);
+                ? _grid.GetNearestNode(_getTargetPosition())
+                : GetFurthestNodeFrom(_getTargetPosition(), startNode);
 
             if (startNode == null || goalNode == null) return;
 

@@ -17,6 +17,7 @@ namespace World
         public static readonly AggressorStateKey Idle = new(1);
         public static readonly AggressorStateKey Attack = new(2);
         public static readonly AggressorStateKey PathfindingChase = new(3);
+        public static readonly AggressorStateKey Investigate = new(4);
 
         public bool Equals(AggressorStateKey other) => _value == other._value;
         public override bool Equals(object obj) => obj is AggressorStateKey other && Equals(other);

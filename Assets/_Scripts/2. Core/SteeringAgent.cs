@@ -8,7 +8,7 @@ namespace Core
     ///
     /// Responsibility Boundary:
     ///   SteeringBehaviors.cs -> pure math, returns desired velocity vectors
-    ///   SteeringAgent.c s-> physics application layer (Unity glue)
+    ///   SteeringAgent.c s-> physics application layer (Unity glue)a
     ///
     /// Movement Model — Direct Velocity Assignment:
     ///   We set Rigidbody.velocity each frame rather than using AddForce/MovePosition.

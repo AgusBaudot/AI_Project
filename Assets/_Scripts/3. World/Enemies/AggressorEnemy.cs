@@ -42,6 +42,7 @@ namespace World
         [SerializeField] private float _criticalAttackRange = 1.2f;
         [SerializeField] private int _patrolCyclesBeforeIdle = 3;
         [SerializeField] private float _idleDuration = 3f;
+        [SerializeField] private float _investigateDuration = 4f;
         [SerializeField] private AIEventChannel _eventChannel;
 
         [Header("Pathfinding")]
@@ -57,6 +58,8 @@ namespace World
         private PatrolState<AggressorStateKey>  _patrolState;
         private EnemyIdleState<AggressorStateKey> _idleState;
         private PathfindingState<AggressorStateKey> _pathfindingChaseState;
+        private InvestigateState<AggressorStateKey> _investigateState;
+        private Vector3 _lastKnownPlayerPosition;
         private bool _attackLandedThisEntry;
         private float _enragedWeight;
 
@@ -93,9 +96,12 @@ namespace World
             _pathfindingChaseState = new PathfindingState<AggressorStateKey>(
                 AggressorStateKey.PathfindingChase,
                 _steeringAgent,
-                _playerTransform,
+                () => _lastKnownPlayerPosition,
                 _pathNodeGrid,
                 PathfindingMode.Chase);
+
+            _investigateState = new InvestigateState<AggressorStateKey>(
+                AggressorStateKey.Investigate, _steeringAgent, _investigateDuration, events: _eventChannel);
 
             _idleState.OnIdleComplete += () =>
             {
@@ -111,10 +117,16 @@ namespace World
                     GrowEnragedWeight();
             };
 
+            _investigateState.OnInvestigateComplete += () =>
+            {
+                _fsm.TransitionTo(AggressorStateKey.Patrol);
+            };
+
             _fsm.AddState(_patrolState);
             _fsm.AddState(_idleState);
             _fsm.AddState(attackState);
             _fsm.AddState(_pathfindingChaseState);
+            _fsm.AddState(_investigateState);
             _fsm.Start(AggressorStateKey.Patrol);
 
             _fsmRunner = new FSMRunner<AggressorStateKey>(_fsm);
@@ -143,6 +155,11 @@ namespace World
                 () => { if (!_fsm.IsInState(AggressorStateKey.Patrol))
                             _fsm.TransitionTo(AggressorStateKey.Patrol); },
                 "GoPatrol");
+            
+            var investigateAction = new ActionNode(
+                () => { if (!_fsm.IsInState(AggressorStateKey.Investigate))
+                            _fsm.TransitionTo(AggressorStateKey.Investigate); },
+                "GoInvestigate");
 
             // ── Innermost: normal patrol or rest? ─────────────────────────────
             var shouldIdleOrPatrol = new QuestionNode(
@@ -150,15 +167,30 @@ namespace World
                                  _patrolState.PatrolCycleCount >= _patrolCyclesBeforeIdle,
                 trueNode:  idleAction,
                 falseNode: patrolAction);
+            
+            // ── Middle: Should we stop and look around? ───────────────────────
+            var shouldInvestigate = new QuestionNode(
+                condition: () => _fsm.IsInState(AggressorStateKey.Investigate) ||
+                                 (_fsm.IsInState(AggressorStateKey.PathfindingChase) && _pathfindingChaseState.IsPathComplete),
+                trueNode: investigateAction,
+                falseNode: shouldIdleOrPatrol);
 
             // ── Middle: was chasing and lost player? → keep pursuing via A* ───
             // Only enter PathfindingChase if we were already in a chase state.
             // During normal patrol, no-LOS drops straight through to patrol/idle.
             var wasChasing = new QuestionNode(
-                condition: () => _fsm.IsInState(AggressorStateKey.Attack) ||
-                                 (_fsm.IsInState(AggressorStateKey.PathfindingChase) && !_pathfindingChaseState.IsPathComplete),
+                condition: () => 
+                {
+                    if (_fsm.IsInState(AggressorStateKey.Attack))
+                    {
+                        _lastKnownPlayerPosition = _playerTransform.position;
+                        return true;
+                    }
+        
+                    return _fsm.IsInState(AggressorStateKey.PathfindingChase) && !_pathfindingChaseState.IsPathComplete;
+                },
                 trueNode:  pathfindChaseAction,
-                falseNode: shouldIdleOrPatrol);
+                falseNode: shouldInvestigate);
 
             // ── Root: can we see the player? ──────────────────────────────────
             return new QuestionNode(
